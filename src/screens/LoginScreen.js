@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,75 +6,61 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
-  Dimensions,
+  ImageBackground,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-} from 'react-native-reanimated';
 import { getDB } from '../db/sqlite';
-
-const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
 
-  // Animated floating circle
-  const offsetY = useSharedValue(0);
-  useEffect(() => {
-    offsetY.value = withRepeat(withSequence(withTiming(-10, { duration: 1500 }), withTiming(10, { duration: 1500 })), -1, true);
-  }, []);
-
-  const animatedCircleStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: offsetY.value }],
-  }));
-
   const handleLogin = async () => {
-    try {
-      const db = await getDB();
-      const result = await db.getFirstAsync(
-        'SELECT * FROM users WHERE (userName = ? OR email = ?) AND password = ?',
-        [userName, userName, password]
-      );
-      if (result) {
-        Alert.alert('Login Success', `Welcome ${result.firstName}`);
-        navigation.replace('Home', { user: result });
-      } else {
-        Alert.alert('Error', 'Invalid username or password');
-      }
-    } catch (err) {
-      console.error('Login error', err);
-      Alert.alert('Error', 'Failed to login');
+  try {
+    const db = await getDB();
+    const result = await db.getFirstAsync(
+      'SELECT * FROM users WHERE userName = ? OR email = ? AND password = ?',
+      [userName, userName, password]
+    );
+
+    if (result) {
+      Alert.alert('Login Success', `Welcome ${result.firstName}`);
+      navigation.replace('Main', { screen: 'Home', params: { user: result } });
+    } else {
+      Alert.alert('Error', 'Invalid username or password');
     }
-  };
+  } catch (err) {
+    console.error('Login error', err);
+    Alert.alert('Error', 'Failed to login');
+  }
+};
+
 
   return (
-    <LinearGradient
-      colors={['#E9F5FF', '#DDF3FF', '#C8EAFF']}
+    <ImageBackground
+      source={require('../../assets/login-bg.png')} // optional background gradient image
       style={styles.container}
+      resizeMode="cover"
     >
-      {/* Animated floating circle */}
-      <Animated.View style={[styles.circle, animatedCircleStyle]} />
+      {/* Top icon */}
+      <View style={styles.iconContainer}>
+        <View style={styles.iconCircle}>
+          <Text style={styles.iconText}>!</Text>
+        </View>
+      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.icon}>!</Text>
-        <Text style={styles.title}>Welcome Back</Text>
+      <Text style={styles.title}>Welcome Back</Text>
 
+      <View style={styles.inputContainer}>
         <TextInput
-          placeholder="Email/Username"
+          placeholder="Username"
           style={styles.input}
           value={userName}
           onChangeText={setUserName}
         />
         <TextInput
           placeholder="Password"
-          secureTextEntry
           style={styles.input}
+          secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
@@ -84,77 +70,61 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <LinearGradient
-            colors={['#0097FF', '#0076FF']}
-            style={styles.buttonGradient}
-          >
-            <Text style={styles.buttonText}>Login</Text>
-          </LinearGradient>
+          <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
-
-        <View style={styles.bottomTextContainer}>
-          <Text style={styles.bottomText}>Don’t have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.replace('Register')}>
-            <Text style={styles.signUpLink}> Sign up</Text>
-          </TouchableOpacity>
-        </View>
       </View>
-    </LinearGradient>
+
+      <View style={styles.bottomTextContainer}>
+        <Text style={styles.bottomText}>Don’t have an account?</Text>
+        <TouchableOpacity onPress={() => navigation.replace('Register')}>
+          <Text style={styles.signUpLink}> Sign up</Text>
+        </TouchableOpacity>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff', // fallback if no background image
+    paddingHorizontal: 24,
   },
-  circle: {
-    position: 'absolute',
-    top: height * 0.1,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#B3E5FF',
-    opacity: 0.4,
-  },
-  card: {
-    width: '85%',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    paddingVertical: 40,
-    paddingHorizontal: 25,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  icon: {
-    textAlign: 'center',
-    fontSize: 40,
-    color: '#0097FF',
-    borderWidth: 3,
-    borderColor: '#0097FF',
-    borderRadius: 40,
-    width: 70,
-    height: 70,
-    lineHeight: 62,
-    alignSelf: 'center',
-    fontWeight: '700',
+  iconContainer: {
+    alignItems: 'center',
     marginBottom: 20,
   },
-  title: {
-    fontSize: 22,
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    borderColor: '#0097FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconText: {
+    fontSize: 32,
+    color: '#0097FF',
     fontWeight: '700',
-    textAlign: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
     marginBottom: 25,
+    color: '#000',
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 30,
   },
   input: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    borderWidth: 1,
     borderColor: '#e0e0e0',
+    borderWidth: 1,
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,
@@ -165,18 +135,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotText: {
-    color: '#007AFF',
+    color: '#0097FF',
     fontWeight: '500',
     fontSize: 15,
   },
   button: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  buttonGradient: {
+    backgroundColor: '#0097FF',
     paddingVertical: 15,
-    alignItems: 'center',
     borderRadius: 12,
+    alignItems: 'center',
   },
   buttonText: {
     color: '#fff',
@@ -186,14 +153,14 @@ const styles = StyleSheet.create({
   bottomTextContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 25,
+    marginTop: 15,
   },
   bottomText: {
-    color: '#444',
+    color: '#555',
     fontSize: 15,
   },
   signUpLink: {
-    color: '#007AFF',
+    color: '#0097FF',
     fontWeight: '600',
     fontSize: 15,
   },
