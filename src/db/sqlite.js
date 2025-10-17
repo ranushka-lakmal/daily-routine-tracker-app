@@ -2,7 +2,6 @@ import * as SQLite from 'expo-sqlite';
 
 let dbInstance = null;
 
-// --- OPEN DATABASE ---
 export async function getDB() {
   if (!dbInstance) {
     dbInstance = await SQLite.openDatabaseAsync('drt.db');
@@ -10,10 +9,12 @@ export async function getDB() {
   return dbInstance;
 }
 
-// --- INITIALIZE DATABASE STRUCTURE ---
+
 export async function initDB() {
   const db = await getDB();
   await db.execAsync(`
+    PRAGMA journal_mode = WAL;
+
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       firstName TEXT NOT NULL,
@@ -28,11 +29,32 @@ export async function initDB() {
       cloudId TEXT,
       synced INTEGER DEFAULT 0
     );
+
+
+    CREATE TABLE IF NOT EXISTS activities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      date TEXT NOT NULL,         
+      startTime TEXT,            
+      endTime TEXT,               
+      status TEXT DEFAULT 'Pending',
+      category TEXT,              
+      priority TEXT,              
+      notes TEXT
+    );
+
+ 
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      priority TEXT DEFAULT 'Medium',
+      notes TEXT
+    );
   `);
-  console.log('✅ SQLite: users table ready');
+  console.log('✅ SQLite: users, activities, categories ready');
 }
 
-// --- SAVE NEW USER ---
+
 export async function saveUser(user) {
   const db = await getDB();
   await db.runAsync(
@@ -51,10 +73,9 @@ export async function saveUser(user) {
       user.photoUri || null
     ]
   );
-  console.log('✅ SQLite: user saved locally');
+  console.log('SQLite: user saved locally');
 }
 
-// --- GET USER BY USERNAME + PASSWORD (LOGIN) ---
 export async function getUserByCredentials(userName, password) {
   const db = await getDB();
   const result = await db.getAllAsync(
@@ -64,30 +85,146 @@ export async function getUserByCredentials(userName, password) {
   return result.length > 0 ? result[0] : null;
 }
 
-// --- GET ALL USERS (for debugging or sync) ---
 export async function getAllUsers() {
   const db = await getDB();
   const result = await db.getAllAsync(`SELECT * FROM users`);
   return result;
 }
 
-// --- GET FIRST USER (for Profile screen) ---
 export async function getFirstUser() {
   const db = await getDB();
   const result = await db.getAllAsync(`SELECT * FROM users LIMIT 1`);
   return result.length > 0 ? result[0] : null;
 }
 
-// --- DELETE ALL USERS (optional, for logout reset) ---
 export async function deleteAllUsers() {
   const db = await getDB();
   await db.runAsync(`DELETE FROM users`);
   console.log('🗑️ All users deleted from SQLite');
 }
 
-// --- UPDATE USER SYNC STATUS (optional for cloud sync) ---
 export async function markUserSynced(userId, cloudId) {
   const db = await getDB();
   await db.runAsync(`UPDATE users SET synced = 1, cloudId = ? WHERE id = ?`, [cloudId, userId]);
   console.log(`☁️ User ${userId} marked as synced`);
+}
+
+
+export async function getAllActivities() {
+  try {
+    const db = await getDB();
+    return await db.getAllAsync(`SELECT * FROM activities ORDER BY id DESC`);
+  } catch (e) {
+    console.error('getAllActivities error', e);
+    return [];
+  }
+}
+
+export async function saveActivity(a) {
+  try {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT INTO activities (name, date, startTime, endTime, status, category, priority, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        a.name,
+        a.date,
+        a.startTime || '',
+        a.endTime || '',
+        a.status || 'Pending',
+        a.category || '',
+        a.priority || '',
+        a.notes || '',
+      ]
+    );
+    console.log('🟢 activity saved:', a.name);
+  } catch (e) {
+    console.error('saveActivity error', e);
+    throw e;
+  }
+}
+
+export async function updateActivity(id, a) {
+  try {
+    const db = await getDB();
+    await db.runAsync(
+      `UPDATE activities
+       SET name=?, date=?, startTime=?, endTime=?, status=?, category=?, priority=?, notes=?
+       WHERE id=?`,
+      [
+        a.name,
+        a.date,
+        a.startTime || '',
+        a.endTime || '',
+        a.status || 'Pending',
+        a.category || '',
+        a.priority || '',
+        a.notes || '',
+        id,
+      ]
+    );
+    console.log('🟡 activity updated:', id);
+  } catch (e) {
+    console.error('updateActivity error', e);
+    throw e;
+  }
+}
+
+export async function deleteActivity(id) {
+  try {
+    const db = await getDB();
+    await db.runAsync(`DELETE FROM activities WHERE id=?`, [id]);
+    console.log('🗑️ activity deleted:', id);
+  } catch (e) {
+    console.error('deleteActivity error', e);
+  }
+}
+
+
+export async function getAllCategories() {
+  try {
+    const db = await getDB();
+    return await db.getAllAsync(`SELECT * FROM categories ORDER BY id DESC`);
+  } catch (e) {
+    console.error('getAllCategories error', e);
+    return [];
+  }
+}
+
+export async function saveCategory(c) {
+  try {
+    const db = await getDB();
+    await db.runAsync(
+      `INSERT OR IGNORE INTO categories (name, priority, notes) VALUES (?, ?, ?)`,
+      [c.name, c.priority || 'Medium', c.notes || '']
+    );
+    console.log('🟢 category saved:', c.name);
+  } catch (e) {
+    console.error('saveCategory error', e);
+    throw e;
+  }
+}
+
+export async function updateCategory(id, c) {
+  try {
+    const db = await getDB();
+    await db.runAsync(
+      `UPDATE categories SET name=?, priority=?, notes=? WHERE id=?`,
+      [c.name, c.priority || 'Medium', c.notes || '', id]
+    );
+    console.log('🟡 category updated:', id);
+  } catch (e) {
+    console.error('updateCategory error', e);
+    throw e;
+  }
+}
+
+export async function deleteCategory(id) {
+  try {
+    const db = await getDB();
+    await db.runAsync(`DELETE FROM categories WHERE id=?`, [id]);
+    console.log('🗑️ category deleted:', id);
+  } catch (e) {
+    console.error('deleteCategory error', e);
+  }
 }
