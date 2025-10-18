@@ -7,63 +7,84 @@ import {
   Alert,
   StyleSheet,
   ImageBackground,
+  Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getDB } from '../db/sqlite';
 
 export default function LoginScreen({ navigation }) {
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-  try {
-    const db = await getDB();
-    const result = await db.getFirstAsync(
-      'SELECT * FROM users WHERE userName = ? OR email = ? AND password = ?',
-      [userName, userName, password]
-    );
+    try {
+      const db = await getDB();
+      const result = await db.getFirstAsync(
+        'SELECT * FROM users WHERE (userName = ? OR email = ?) AND password = ?',
+        [userName, userName, password]
+      );
 
-    if (result) {
-      Alert.alert('Login Success', `Welcome ${result.firstName}`);
-      navigation.replace('Main', { screen: 'Home', params: { user: result } });
-    } else {
-      Alert.alert('Error', 'Invalid username or password');
+      if (result) {
+        Alert.alert('Login Success', `Welcome ${result.firstName}`);
+        navigation.replace('Main', { screen: 'Home', params: { user: result } });
+      } else {
+        Alert.alert('Error', 'Invalid username or password');
+      }
+    } catch (err) {
+      console.error('Login error', err);
+      Alert.alert('Error', 'Failed to login');
     }
-  } catch (err) {
-    console.error('Login error', err);
-    Alert.alert('Error', 'Failed to login');
-  }
-};
-
+  };
 
   return (
     <ImageBackground
-      source={require('../../assets/login-bg.png')} // optional background gradient image
+      source={require('../../assets/login-bg.png')}
       style={styles.container}
       resizeMode="cover"
     >
-      {/* Top icon */}
-      <View style={styles.iconContainer}>
-        <View style={styles.iconCircle}>
-          <Text style={styles.iconText}>!</Text>
-        </View>
+      {/* Top animated GIF */}
+      <View style={styles.gifContainer}>
+        <Image
+          source={require('../../assets/login_users.gif')}
+          style={styles.gif}
+          resizeMode="contain"
+        />
       </View>
 
       <Text style={styles.title}>Welcome Back</Text>
 
       <View style={styles.inputContainer}>
+        {/* Username Field */}
         <TextInput
-          placeholder="Username"
+          placeholder="Username or Email"
           style={styles.input}
           value={userName}
           onChangeText={setUserName}
+          placeholderTextColor="#888"
         />
-        <TextInput
-          placeholder="Password"
-          style={styles.input}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+
+        {/* Password Field with Eye Icon */}
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Password"
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            placeholderTextColor="#888"
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeIcon}
+          >
+            <Ionicons
+              name={showPassword ? 'eye' : 'eye-off'}
+              size={22}
+              color="#888"
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity style={styles.forgotContainer}>
           <Text style={styles.forgotText}>Forgot Password?</Text>
@@ -89,29 +110,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f9ff', // fallback if no background image
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 24,
   },
-  iconContainer: {
+  gifContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
+    width: '100%',
   },
-  iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 3,
-    borderColor: '#0097FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconText: {
-    fontSize: 32,
-    color: '#0097FF',
-    fontWeight: '700',
+  gif: {
+    width: 180,
+    height: 180,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     marginBottom: 25,
     color: '#000',
@@ -129,6 +141,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 12,
+    color: '#000',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+    paddingVertical: 14,
+  },
+  eyeIcon: {
+    padding: 6,
   },
   forgotContainer: {
     alignItems: 'flex-end',
