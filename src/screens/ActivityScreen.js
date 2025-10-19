@@ -16,6 +16,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import * as Notifications from "expo-notifications";
 import {
   initDB,
   getAllActivities,
@@ -30,30 +31,31 @@ import {
 } from "../db/sqlite";
 import { useTheme } from "../components/ThemeContext";
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 export default function ActivityScreen({ route, navigation }) {
   const { theme } = useTheme();
-
   const routeUser = route?.params?.user || null;
   const [currentUser, setCurrentUser] = useState(routeUser);
   const userId = currentUser?.id || null;
-
   const [tab, setTab] = useState("activities");
   const [loading, setLoading] = useState(true);
-
   const [activities, setActivities] = useState([]);
   const [categories, setCategories] = useState([]);
-
   const [activityModal, setActivityModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
   const [editing, setEditing] = useState(null);
-
   const [formActivity, setFormActivity] = useState(emptyActivity());
   const [formCategory, setFormCategory] = useState(emptyCategory());
-
   const [showDate, setShowDate] = useState(false);
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
-
   const mounted = useRef(true);
   const activityAnim = useRef(new Animated.Value(0)).current;
   const categoryAnim = useRef(new Animated.Value(0)).current;
@@ -73,6 +75,35 @@ export default function ActivityScreen({ route, navigation }) {
 
   function emptyCategory() {
     return { name: "", priority: "Medium", notes: "" };
+  }
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please enable notifications.");
+      }
+    })();
+  }, []);
+
+  async function scheduleExpiryNotification(activity) {
+    if (!activity.date || !activity.endTime) return;
+    try {
+      const endDate = new Date(`${activity.date}T${activity.endTime}`);
+      const now = new Date();
+      if (endDate <= now) return;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "⏰ Task Expired",
+          body: `"${activity.name}" has expired.`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: endDate,
+      });
+    } catch (e) {
+      console.error("Failed to schedule notification:", e);
+    }
   }
 
   useEffect(() => {
@@ -150,6 +181,7 @@ export default function ActivityScreen({ route, navigation }) {
         await updateActivity(editing.id, formActivity);
       } else {
         await saveActivity(userId, formActivity);
+        await scheduleExpiryNotification(formActivity);
       }
       await reloadAll();
       setFormActivity(emptyActivity());
