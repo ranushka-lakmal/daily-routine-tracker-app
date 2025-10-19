@@ -30,50 +30,97 @@ export async function initDB() {
       synced INTEGER DEFAULT 0
     );
 
-
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
       name TEXT NOT NULL,
-      date TEXT NOT NULL,         
-      startTime TEXT,            
-      endTime TEXT,               
+      date TEXT NOT NULL,
+      startTime TEXT,
+      endTime TEXT,
       status TEXT DEFAULT 'Pending',
-      category TEXT,              
-      priority TEXT,              
-      notes TEXT
+      category TEXT,
+      priority TEXT,
+      notes TEXT,
+      FOREIGN KEY(userId) REFERENCES users(id)
     );
 
- 
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
+      userId INTEGER NOT NULL,
+      name TEXT NOT NULL,
       priority TEXT DEFAULT 'Medium',
-      notes TEXT
+      notes TEXT,
+      UNIQUE(userId, name),
+      FOREIGN KEY(userId) REFERENCES users(id)
     );
   `);
-  console.log('✅ SQLite: users, activities, categories ready');
+
+  console.log('SQLite: users, activities (with userId), categories (with userId) ready');
 }
 
 
 export async function saveUser(user) {
-  const db = await getDB();
-  await db.runAsync(
-    `INSERT INTO users 
-      (firstName, lastName, email, mobileNumber, birthDay, gender, userName, password, photoUri)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      user.firstName,
-      user.lastName,
-      user.email,
-      user.mobileNumber,
-      user.birthDay,
-      user.gender,
-      user.userName,
-      user.password,
-      user.photoUri || null
-    ]
-  );
-  console.log('SQLite: user saved locally');
+  try {
+    const db = await getDB();
+
+    const existing = await db.getAllAsync(
+      `SELECT id FROM users WHERE id = ? OR userName = ? LIMIT 1`,
+      [user.id || null, user.userName]
+    );
+
+    if (existing.length > 0) {
+      const duplicate = await db.getAllAsync(
+        `SELECT id FROM users WHERE (email = ? OR userName = ?) AND id != ? LIMIT 1`,
+        [user.email, user.userName, existing[0].id]
+      );
+      if (duplicate.length > 0) {
+        throw new Error('Username or email already exists');
+      }
+
+      await db.runAsync(
+        `UPDATE users 
+         SET firstName = ?, lastName = ?, email = ?, mobileNumber = ?, 
+             birthDay = ?, gender = ?, userName = ?, password = ?, photoUri = ?
+         WHERE id = ?`,
+        [
+          user.firstName,
+          user.lastName,
+          user.email,
+          user.mobileNumber,
+          user.birthDay,
+          user.gender,
+          user.userName,
+          user.password,
+          user.photoUri,
+          existing[0].id,
+        ]
+      );
+      console.log('user updated:', user.userName);
+    } else {
+      await db.runAsync(
+        `INSERT INTO users 
+         (firstName, lastName, email, mobileNumber, birthDay, gender, userName, password, photoUri)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          user.firstName,
+          user.lastName,
+          user.email,
+          user.mobileNumber,
+          user.birthDay,
+          user.gender,
+          user.userName,
+          user.password,
+          user.photoUri,
+        ]
+      );
+      console.log('user saved:', user.userName);
+    }
+
+    return true;
+  } catch (e) {
+    console.error('saveUser error', e);
+    throw e;
+  }
 }
 
 export async function getUserByCredentials(userName, password) {
@@ -87,8 +134,7 @@ export async function getUserByCredentials(userName, password) {
 
 export async function getAllUsers() {
   const db = await getDB();
-  const result = await db.getAllAsync(`SELECT * FROM users`);
-  return result;
+  return await db.getAllAsync(`SELECT * FROM users`);
 }
 
 export async function getFirstUser() {
@@ -100,33 +146,42 @@ export async function getFirstUser() {
 export async function deleteAllUsers() {
   const db = await getDB();
   await db.runAsync(`DELETE FROM users`);
-  console.log('🗑️ All users deleted from SQLite');
+  console.log('All users deleted from SQLite');
 }
 
 export async function markUserSynced(userId, cloudId) {
   const db = await getDB();
-  await db.runAsync(`UPDATE users SET synced = 1, cloudId = ? WHERE id = ?`, [cloudId, userId]);
-  console.log(`☁️ User ${userId} marked as synced`);
+  await db.runAsync(`UPDATE users SET synced = 1, cloudId = ? WHERE id = ?`, [
+    cloudId,
+    userId,
+  ]);
+  console.log(`User ${userId} marked as synced`);
 }
 
 
-export async function getAllActivities() {
+export async function getAllActivities(userId) {
   try {
     const db = await getDB();
-    return await db.getAllAsync(`SELECT * FROM activities ORDER BY id DESC`);
+    const res = await db.getAllAsync(
+      'SELECT * FROM activities WHERE userId = ?',
+      [userId]
+    );
+    return res || [];
   } catch (e) {
     console.error('getAllActivities error', e);
     return [];
   }
 }
 
-export async function saveActivity(a) {
+export async function saveActivity(userId, a) {
   try {
     const db = await getDB();
     await db.runAsync(
-      `INSERT INTO activities (name, date, startTime, endTime, status, category, priority, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO activities 
+       (userId, name, date, startTime, endTime, status, category, priority, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        userId,
         a.name,
         a.date,
         a.startTime || '',
@@ -137,7 +192,7 @@ export async function saveActivity(a) {
         a.notes || '',
       ]
     );
-    console.log('🟢 activity saved:', a.name);
+    console.log('activity saved:', a.name);
   } catch (e) {
     console.error('saveActivity error', e);
     throw e;
@@ -163,7 +218,7 @@ export async function updateActivity(id, a) {
         id,
       ]
     );
-    console.log('🟡 activity updated:', id);
+    console.log('activity updated:', id);
   } catch (e) {
     console.error('updateActivity error', e);
     throw e;
@@ -181,22 +236,26 @@ export async function deleteActivity(id) {
 }
 
 
-export async function getAllCategories() {
+export async function getAllCategories(userId) {
   try {
     const db = await getDB();
-    return await db.getAllAsync(`SELECT * FROM categories ORDER BY id DESC`);
+    const res = await db.getAllAsync(
+      'SELECT * FROM categories WHERE userId = ? ORDER BY id DESC',
+      [userId]
+    );
+    return res || [];
   } catch (e) {
     console.error('getAllCategories error', e);
     return [];
   }
 }
 
-export async function saveCategory(c) {
+export async function saveCategory(userId, c) {
   try {
     const db = await getDB();
     await db.runAsync(
-      `INSERT OR IGNORE INTO categories (name, priority, notes) VALUES (?, ?, ?)`,
-      [c.name, c.priority || 'Medium', c.notes || '']
+      `INSERT OR IGNORE INTO categories (userId, name, priority, notes) VALUES (?, ?, ?, ?)`,
+      [userId, c.name, c.priority || 'Medium', c.notes || '']
     );
     console.log('🟢 category saved:', c.name);
   } catch (e) {

@@ -6,11 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
-  ImageBackground,
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getDB } from '../db/sqlite';
+import { Video } from 'expo-av';
+import { BlurView } from 'expo-blur';
 
 export default function LoginScreen({ navigation }) {
   const [userName, setUserName] = useState('');
@@ -38,79 +39,99 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <ImageBackground
-      source={require('../../assets/login-bg.png')}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Top animated GIF */}
-      <View style={styles.gifContainer}>
-        <Image
-          source={require('../../assets/login_users.gif')}
-          style={styles.gif}
-          resizeMode="contain"
-        />
-      </View>
+    <View style={styles.container}>
+      {/* Background video */}
+      <Video
+        source={require('../../assets/bg_7.mp4')}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        shouldPlay
+        isLooping
+        isMuted
+      />
 
-      <Text style={styles.title}>Welcome Back</Text>
 
-      <View style={styles.inputContainer}>
-        {/* Username Field */}
-        <TextInput
-          placeholder="Username or Email"
-          style={styles.input}
-          value={userName}
-          onChangeText={setUserName}
-          placeholderTextColor="#888"
-        />
+      <View style={styles.overlay} />
 
-        {/* Password Field with Eye Icon */}
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Password"
-            style={styles.passwordInput}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-            placeholderTextColor="#888"
+
+      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+
+      <View style={styles.innerContainer}>
+
+        <View style={styles.gifContainer}>
+          <Image
+            source={require('../../assets/login_users.gif')}
+            style={styles.gif}
+            resizeMode="contain"
           />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={styles.eyeIcon}
-          >
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={22}
-              color="#888"
+        </View>
+
+        <Text style={styles.title}>Welcome Back</Text>
+
+        <View style={styles.inputContainer}>
+   
+          <TextInput
+            placeholder="Username or Email"
+            style={styles.input}
+            value={userName}
+            onChangeText={setUserName}
+            placeholderTextColor="#ccc"
+          />
+
+          <View style={styles.passwordContainer}>
+            <TextInput
+              placeholder="Password"
+              style={styles.passwordInput}
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              placeholderTextColor="#ccc"
             />
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={showPassword ? 'eye' : 'eye-off'}
+                size={22}
+                color="#ccc"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.forgotContainer}>
+            <Text style={styles.forgotText}>Forgot Password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin}>
+            <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.forgotContainer}>
-          <Text style={styles.forgotText}>Forgot Password?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
+        <View style={styles.bottomTextContainer}>
+          <Text style={styles.bottomText}>Don’t have an account?</Text>
+          <TouchableOpacity onPress={() => navigation.replace('Register')}>
+            <Text style={styles.signUpLink}> Sign up</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      <View style={styles.bottomTextContainer}>
-        <Text style={styles.bottomText}>Don’t have an account?</Text>
-        <TouchableOpacity onPress={() => navigation.replace('Register')}>
-          <Text style={styles.signUpLink}> Sign up</Text>
-        </TouchableOpacity>
-      </View>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#000',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)', //video eke darkness eka
+  },
+  innerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f9ff',
     paddingHorizontal: 24,
   },
   gifContainer: {
@@ -126,29 +147,29 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 25,
-    color: '#000',
+    color: '#fff',
   },
   inputContainer: {
     width: '100%',
     marginBottom: 30,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255,255,255,0.3)',
     borderWidth: 1,
     paddingVertical: 14,
     paddingHorizontal: 16,
     fontSize: 16,
     marginBottom: 12,
-    color: '#000',
+    color: '#fff',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255,255,255,0.3)',
     borderWidth: 1,
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -156,7 +177,7 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000',
+    color: '#fff',
     paddingVertical: 14,
   },
   eyeIcon: {
@@ -167,12 +188,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotText: {
-    color: '#0097FF',
+    color: '#FFD700',
     fontWeight: '500',
     fontSize: 15,
   },
   button: {
-    backgroundColor: '#0097FF',
+    backgroundColor: '#007AFF',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -188,11 +209,11 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   bottomText: {
-    color: '#555',
+    color: '#ddd',
     fontSize: 15,
   },
   signUpLink: {
-    color: '#0097FF',
+    color: '#FFD700',
     fontWeight: '600',
     fontSize: 15,
   },

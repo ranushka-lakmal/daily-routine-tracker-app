@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
-import { View, Image, Button, Alert } from 'react-native';
+import { View, Image, TouchableOpacity, Text, Alert, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AvatarPicker({ onPick }) {
   const [imageUri, setImageUri] = useState(null);
 
+
+  const requestPermissions = async (type) => {
+    if (type === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      return status === 'granted';
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      return status === 'granted';
+    }
+  };
+
   const pickFromGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission denied', 'We need gallery access to select images.');
+    const granted = await requestPermissions('gallery');
+    if (!granted) {
+      Alert.alert('Permission denied', 'Please allow gallery access.');
       return;
     }
 
@@ -26,9 +38,9 @@ export default function AvatarPicker({ onPick }) {
   };
 
   const pickFromCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission denied', 'We need camera access to take photos.');
+    const granted = await requestPermissions('camera');
+    if (!granted) {
+      Alert.alert('Permission denied', 'Please allow camera access.');
       return;
     }
 
@@ -46,16 +58,79 @@ export default function AvatarPicker({ onPick }) {
   };
 
   return (
-    <View style={{ alignItems: 'center', marginBottom: 20 }}>
-      {imageUri && (
-        <Image
-          source={{ uri: imageUri }}
-          style={{ width: 120, height: 120, borderRadius: 60, marginBottom: 10 }}
-        />
-      )}
-      <Button title="Pick from Gallery" onPress={pickFromGallery} />
-      <View style={{ height: 10 }} />
-      <Button title="Take a Photo" onPress={pickFromCamera} />
+    <View style={styles.container}>
+      <TouchableOpacity onPress={pickFromGallery}>
+        <View style={styles.avatarWrapper}>
+          {imageUri ? (
+            <Image source={{ uri: imageUri }} style={styles.avatar} />
+          ) : (
+            <View style={styles.placeholder}>
+              <Ionicons name="camera-outline" size={40} color="#ccc" />
+              <Text style={styles.placeholderText}>Add Photo</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity style={styles.button} onPress={pickFromGallery}>
+          <Ionicons name="image-outline" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Gallery</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#28a745' }]} onPress={pickFromCamera}>
+          <Ionicons name="camera" size={22} color="#fff" />
+          <Text style={styles.buttonText}>Camera</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  avatarWrapper: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    color: '#ccc',
+    marginTop: 5,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 15,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 6,
+  },
+  buttonText: {
+    color: '#fff',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+});

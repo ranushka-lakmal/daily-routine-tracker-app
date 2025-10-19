@@ -25,7 +25,7 @@ async function uploadUser(user) {
   const res = await client.post('/api/users', form, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
-  return res.data; // { _id: ... }
+  return res.data; 
 }
 
 export default function useSync() {
