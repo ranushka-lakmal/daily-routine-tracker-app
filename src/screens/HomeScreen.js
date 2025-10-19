@@ -53,6 +53,7 @@ export default function HomeScreen({ route }) {
     []
   );
 
+  // ✅ Prepare dates and greeting
   useEffect(() => {
     const today = new Date();
     const hour = today.getHours();
@@ -64,16 +65,29 @@ export default function HomeScreen({ route }) {
     for (let i = -daysBefore; i <= daysAfter; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
-      dates.push(d);
+      dates.push(new Date(d));
     }
+
     setAllDates(dates);
+    const todayStr = formatDate(today);
+    setSelectedDate(todayStr);
     setQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+
+    // ✅ Scroll calendar to today's position after render
+    setTimeout(() => {
+      const idx = dates.findIndex((d) => formatDate(d) === todayStr);
+      if (flatListRef.current && idx >= 0) {
+        flatListRef.current.scrollToIndex({
+          index: Math.max(idx - 2, 0),
+          animated: false,
+        });
+      }
+    }, 400);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadActivities();
-      setTimeout(() => scrollToToday(false), 400);
     }, [])
   );
 
@@ -98,8 +112,18 @@ export default function HomeScreen({ route }) {
     }
   };
 
+  // ✅ Mark expired tasks
   const filterByDate = () => {
-    const daily = activities.filter((a) => a.date === selectedDate);
+    const now = new Date();
+    const updated = activities.map((a) => {
+      if (a.status !== "Done" && a.endTime) {
+        const end = new Date(`${a.date}T${a.endTime}`);
+        if (end < now) return { ...a, status: "Missed" };
+      }
+      return a;
+    });
+
+    const daily = updated.filter((a) => a.date === selectedDate);
     setFilteredActivities(daily);
     const doneCount = daily.filter((a) => a.status === "Done").length;
     setProgress(daily.length > 0 ? (doneCount / daily.length) * 100 : 0);
@@ -112,6 +136,7 @@ export default function HomeScreen({ route }) {
   };
 
   const handleStatusToggle = async (item) => {
+    if (item.status === "Missed") return;
     const newStatus = item.status === "Pending" ? "Done" : "Pending";
     await updateActivity(item.id, { ...item, status: newStatus });
     await loadActivities();
@@ -131,6 +156,7 @@ export default function HomeScreen({ route }) {
     ]);
   };
 
+  // ✅ Scroll to today & center visually
   const scrollToToday = (animated = true) => {
     if (!flatListRef.current || allDates.length === 0) return;
     const today = new Date();
@@ -138,7 +164,10 @@ export default function HomeScreen({ route }) {
     const index = allDates.findIndex((d) => formatDate(d) === todayStr);
     if (index >= 0) {
       try {
-        flatListRef.current.scrollToIndex({ index, animated });
+        flatListRef.current.scrollToIndex({
+          index: Math.max(index - 2, 0),
+          animated,
+        });
         setSelectedDate(todayStr);
       } catch (e) {
         console.warn("scrollToToday failed:", e.message);
@@ -215,17 +244,40 @@ export default function HomeScreen({ route }) {
           styles.taskCard,
           { backgroundColor: colors.card },
           item.status === "Done" && { backgroundColor: "#153C3C" },
+          item.status === "Missed" && { backgroundColor: "#3b0a0a" },
         ]}
         onPress={() => handleStatusToggle(item)}
       >
         <View style={styles.taskLeft}>
           <Ionicons
-            name={item.status === "Done" ? "checkmark-circle" : "time-outline"}
+            name={
+              item.status === "Done"
+                ? "checkmark-circle"
+                : item.status === "Missed"
+                ? "alert-circle"
+                : "time-outline"
+            }
             size={26}
-            color={item.status === "Done" ? "#00C853" : colors.primary}
+            color={
+              item.status === "Done"
+                ? "#00C853"
+                : item.status === "Missed"
+                ? "#FF3B30"
+                : colors.primary
+            }
           />
           <View style={{ marginLeft: 10 }}>
-            <Text style={[styles.taskTitle, { color: colors.text }]}>
+            <Text
+              style={[
+                styles.taskTitle,
+                {
+                  color:
+                    item.status === "Missed" ? "#FF3B30" : colors.text,
+                  textDecorationLine:
+                    item.status === "Missed" ? "line-through" : "none",
+                },
+              ]}
+            >
               {item.name}
             </Text>
             <Text style={[styles.taskSub, { color: colors.subtext }]}>
@@ -234,6 +286,11 @@ export default function HomeScreen({ route }) {
             <Text style={[styles.taskSub, { color: colors.subtext }]}>
               {item.category} • {item.priority}
             </Text>
+            {item.status === "Missed" && (
+              <Text style={{ color: "#FF3B30", fontWeight: "bold" }}>
+                ⚠️ Missed
+              </Text>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -244,7 +301,6 @@ export default function HomeScreen({ route }) {
     const dateStr = formatDate(item);
     const isSelected = dateStr === selectedDate;
     const isToday = dateStr === formatDate(new Date());
-
     return (
       <TouchableOpacity
         style={[
@@ -347,7 +403,6 @@ export default function HomeScreen({ route }) {
           </TouchableOpacity>
         )}
 
-  
         <View style={styles.progressWrapper}>
           <ProgressCircle />
           <Text style={[styles.progressLabel, { color: colors.subtext }]}>
@@ -355,7 +410,6 @@ export default function HomeScreen({ route }) {
           </Text>
         </View>
 
-      
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Tasks</Text>
         {filteredActivities.length === 0 ? (
           <View style={styles.emptyState}>
@@ -440,7 +494,12 @@ const styles = StyleSheet.create({
   progressContainer: { alignItems: "center", justifyContent: "center" },
   progressText: { position: "absolute", fontSize: 26, fontWeight: "700" },
   progressLabel: { fontSize: 15, fontStyle: "italic", textAlign: "center" },
-  sectionTitle: { fontSize: 20, fontWeight: "700", marginVertical: 10, marginHorizontal: 20 },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginVertical: 10,
+    marginHorizontal: 20,
+  },
   taskCard: {
     flexDirection: "row",
     justifyContent: "space-between",
