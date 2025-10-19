@@ -27,7 +27,7 @@ export const ThemeProvider = ({ children }) => {
   };
 
   const colors =
-    theme === 'dark'
+    theme === 'light'
       ? {
           background: '#F9FBFF',
           card: '#FFFFFF',
